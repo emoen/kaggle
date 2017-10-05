@@ -11,6 +11,14 @@ import warnings
 
 import statsmodels.api as sm
 
+#os.chdir('F:\\')
+#os.getcwd()
+#os.chdir('prosjekt4')
+#os.chdir('kaggle')
+#os.chdir('kaggle')
+#os.chdir('house_price_advanced_regression_techniques')
+#os.getcwd()
+
 train_url = "train.csv"
 df_train = pd.read_csv(train_url)
 
@@ -64,6 +72,7 @@ est.summary()
 import statsmodels.formula.api as smf
 
 # formula: response ~ predictor + predictor
-est = smf.ols(formula="SalePrice ~ GrLivArea + TotalBsmtSF + OverallQual + YearBuilt", data=df_adv).fit()
+est = smf.ols(formula="SalePrice ~ GrLivArea + TotalBsmtSF + OverallQual + YearBuilt", data=df_train).fit()
+df_train['predicted'] = est.predict(df_train) 
 est.predict(df_train).to_csv("reg.csv")
 #submit.to_csv("regression.csv", index=False)
