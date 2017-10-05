@@ -11,9 +11,6 @@ import warnings
 
 import statsmodels.api as sm
 
-warnings.filterwarnings('ignore')
-#%matplotlib inline
-
 train_url = "train.csv"
 df_train = pd.read_csv(train_url)
 
@@ -21,38 +18,6 @@ df_train = pd.read_csv(train_url)
 total = df_train.isnull().sum().sort_values(ascending=False)
 percent = (df_train.isnull().sum()/df_train.isnull().count()).sort_values(ascending=False)
 missing_data = pd.concat([total, percent], axis=1, keys=['Total', 'Percent'])
-
-#print(missing_data.head(20))
-
-sns.distplot(df_train['SalePrice']);
-plt.show();
-
-#skewness and kurtosis
-print("Skewness: %f" % df_train['SalePrice'].skew())
-print("Kurtosis: %f" % df_train['SalePrice'].kurt())
-
-var = 'GrLivArea'
-data = pd.concat([df_train['SalePrice'], df_train[var]], axis=1)
-data.plot.scatter(x=var, y='SalePrice', ylim=(0,800000));
-plt.show()
-
-var = 'TotalBsmtSF'
-data = pd.concat([df_train['SalePrice'], df_train[var]], axis=1)
-data.plot.scatter(x=var, y='SalePrice', ylim=(0,800000));
-plt.show()
-
-#box plot overallqual/saleprice
-var = 'OverallQual'
-data = pd.concat([df_train['SalePrice'], df_train[var]], axis=1)
-f, ax = plt.subplots(figsize=(8, 6))
-fig = sns.boxplot(x=var, y="SalePrice", data=data)
-fig.axis(ymin=0, ymax=800000);
-plt.show()
-
-sns.set()
-cols = ['SalePrice', 'OverallQual', 'GrLivArea', 'GarageCars', 'TotalBsmtSF', 'FullBath', 'YearBuilt']
-sns.pairplot(df_train[cols], size = 2.5)
-plt.show();
 
 total = df_train.isnull().sum().sort_values(ascending=False)
 percent = (df_train.isnull().sum()/df_train.isnull().count()).sort_values(ascending=False)
@@ -83,3 +48,22 @@ data.plot.scatter(x=var, y='SalePrice', ylim=(0,800000));
 df_train.sort_values(by = 'GrLivArea', ascending = False)[:2]
 df_train = df_train.drop(df_train[df_train['Id'] == 1299].index)
 df_train = df_train.drop(df_train[df_train['Id'] == 524].index)
+
+#multiple - one prediction
+X = df_train[['GrLivArea','TotalBsmtSF','OverallQual','YearBuilt']]
+Y = df_train['SalePrice']
+
+## fit a OLS model with intercept on TV and Radio
+X = sm.add_constant(X)
+est = sm.OLS(Y, X).fit()
+
+est.summary()
+
+#multivariat prediction
+# import formula api as alias smf
+import statsmodels.formula.api as smf
+
+# formula: response ~ predictor + predictor
+est = smf.ols(formula="SalePrice ~ GrLivArea + TotalBsmtSF + OverallQual + YearBuilt", data=df_adv).fit()
+est.predict(df_train).to_csv("reg.csv")
+#submit.to_csv("regression.csv", index=False)
