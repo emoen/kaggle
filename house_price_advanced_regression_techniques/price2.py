@@ -71,8 +71,17 @@ est.summary()
 # import formula api as alias smf
 import statsmodels.formula.api as smf
 
+# clean out liars
+df_train.loc[df_train['Id'] ==524]['GrLivArea']
+df_train.loc[df_train['Id'] ==1299,['GrLivArea']] = pd.np.nan
+df_train.loc[df_train['Id'] ==524,['GrLivArea']] = pd.np.nan
+df_train.loc[df_train['Id'] ==1299]['GrLivArea']
+
 # formula: response ~ predictor + predictor
 est = smf.ols(formula="SalePrice ~ GrLivArea + TotalBsmtSF + OverallQual + YearBuilt", data=df_train).fit()
 df_train['predicted'] = est.predict(df_train) 
-est.predict(df_train).to_csv("reg.csv")
+df_train['predicted'] = df_train.predicted.round()
+tmp = pd.DataFrame(df_train)
+tmp['Id'] += 1460
+tmp[['Id', 'predicted']].to_csv("reg.csv", index=False)
 #submit.to_csv("regression.csv", index=False)
