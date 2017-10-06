@@ -11,6 +11,9 @@ import warnings
 
 import statsmodels.api as sm
 
+import statsmodels.formula.api as smf
+
+import os
 #os.chdir('F:\\')
 #os.getcwd()
 #os.chdir('prosjekt4')
@@ -52,6 +55,7 @@ var = 'GrLivArea'
 data = pd.concat([df_train['SalePrice'], df_train[var]], axis=1)
 data.plot.scatter(x=var, y='SalePrice', ylim=(0,800000));
 
+# clean out liars
 #deleting points
 df_train.sort_values(by = 'GrLivArea', ascending = False)[:2]
 df_train = df_train.drop(df_train[df_train['Id'] == 1299].index)
@@ -69,19 +73,21 @@ est.summary()
 
 #multivariat prediction
 # import formula api as alias smf
-import statsmodels.formula.api as smf
-
-# clean out liars
-df_train.loc[df_train['Id'] ==524]['GrLivArea']
-df_train.loc[df_train['Id'] ==1299,['GrLivArea']] = pd.np.nan
-df_train.loc[df_train['Id'] ==524,['GrLivArea']] = pd.np.nan
-df_train.loc[df_train['Id'] ==1299]['GrLivArea']
 
 # formula: response ~ predictor + predictor
-est = smf.ols(formula="SalePrice ~ GrLivArea + TotalBsmtSF + OverallQual + YearBuilt", data=df_train).fit()
-df_train['predicted'] = est.predict(df_train) 
-df_train['predicted'] = df_train.predicted.round()
-tmp = pd.DataFrame(df_train)
+#all_columns = "+".join(df_train.loc[:,df_train.columns != "SalePrice"]).columns
+all_columns = " + ".join(df_train[df_train.columns.difference(['Id', 'SalePrice','1stFlrSF','2ndFlrSF','3SsnPorch'])].columns)
+
+#all non-numeric columns:
+catCol = df_train.select_dtypes(['object']).columns
+pd.get_dummies(df_train, columns=catCol).head()
+
+est = smf.ols(formula="SalePrice ~ "+all_columns, data=df_train).fit()
+#est = smf.ols(formula="SalePrice ~ GrLivArea + TotalBsmtSF + OverallQual + YearBuilt", data=df_train).fit()
+
+df_train2 = pd.read_csv(train_url)
+df_train2['predicted'] = est.predict(df_train2) 
+df_train2['predicted'] = df_train.predicted.round()
+tmp = df_train2.copy()
 tmp['Id'] += 1460
 tmp[['Id', 'predicted']].to_csv("reg.csv", index=False)
-#submit.to_csv("regression.csv", index=False)
