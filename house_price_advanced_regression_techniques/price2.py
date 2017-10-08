@@ -74,19 +74,23 @@ est.summary()
 #multivariat prediction
 # import formula api as alias smf
 
+#convert categorical variable into dummy
+df_train = pd.get_dummies(df_train)
+
 # formula: response ~ predictor + predictor
 #all_columns = "+".join(df_train.loc[:,df_train.columns != "SalePrice"]).columns
-all_columns = " + ".join(df_train[df_train.columns.difference(['Id', 'SalePrice','1stFlrSF','2ndFlrSF','3SsnPorch'])].columns)
+all_columns = " + ".join(df_train[df_train.columns.difference(['Id', 'SalePrice','1stFlrSF','2ndFlrSF','3SsnPorch','Exterior2nd_Wd Sdng', 'Exterior2nd_Wd Shng','HouseStyle_1.5Fin','HouseStyle_1.5Unf','HouseStyle_1Story','HouseStyle_2.5Fin','HouseStyle_2.5Unf','HouseStyle_2Story','Exterior2nd_Brk Cmn','Exterior1st_Wd Sdng','MSZoning_C (all)','RoofMatl_Tar&Grv'])].columns)
 
 #all non-numeric columns:
 catCol = df_train.select_dtypes(['object']).columns
-pd.get_dummies(df_train, columns=catCol).head()
+df_train = pd.get_dummies(df_train)
 
 est = smf.ols(formula="SalePrice ~ "+all_columns, data=df_train).fit()
 #est = smf.ols(formula="SalePrice ~ GrLivArea + TotalBsmtSF + OverallQual + YearBuilt", data=df_train).fit()
 
 df_train2 = pd.read_csv(train_url)
 df_train2['predicted'] = est.predict(df_train2) 
+df_train2 = pd.get_dummies(df_train2)
 df_train2['predicted'] = df_train.predicted.round()
 tmp = df_train2.copy()
 tmp['Id'] += 1460
