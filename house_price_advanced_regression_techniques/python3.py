@@ -101,7 +101,58 @@ df_test2 = df_test2[df_train2.columns]
 df_test2['SalePrice'] = est.predict(df_test2) 
 #df_train2 = pd.get_dummies(df_train2)
 
+#score:
+est.rsquared
 df_test2[['Id', 'SalePrice']].to_csv("reg.csv", index=False)
+
+# OLS using sklearn
+from sklearn import datasets, linear_model
+from sklearn.metrics import mean_squared_error, r2_score
+
+# Create linear regression object
+regr = linear_model.LinearRegression()
+# Train the model using the training sets
+X_train = df_train2[df_train2.columns.difference(['Id', 'SalePrice'])]
+y_train = df_train2['SalePrice']
+regr.fit(X_train, y_train)
+# Make predictions using the testing set
+X_test = df_test2[df_test2.columns.difference(['Id', 'SalePrice'])]
+
+#find nans
+str_cols = X_test.columns[X_test.dtypes=='uint8']
+X_test[str_cols] = X_test[str_cols].fillna(0)
+X_test.fillna(X_test.mean())
+
+X_test.BsmtFinSFA[X_test.BsmtFinSFA.isnull() == True]
+X_test['BsmtFinSFA'][X_test.index==660]
+#plot it
+var = 'BsmtFinSFA' 
+y=list(range(len(X_test.index)))
+yy = pd.DataFrame()
+yy['index'] = y
+data = pd.concat((yy, X_test[var]), axis=1)
+data.plot.scatter(x='index', y=var, ylim=(0,1800))
+plt.show()     
+
+df_test3 = pd.DataFrame()
+df_test3['Id'] = df_test2["Id"] 
+df_test3['SalePrice'] = regr.predict(X_test)
+regr.intercept_
+
+X_test['TotalBsmtSF'] = X_test['TotalBsmtSF'].fillna(X_test.TotalBsmtSF.mean())
+X_test['BsmtFinSFA'] = X_test['BsmtFinSFA'].fillna(X_test.BsmtFinSFA.mean())
+X_test['BsmtFinSFB'] = X_test['BsmtFinSFB'].fillna(X_test.BsmtFinSFB.mean())
+X_test['BsmtFullBath'] = X_test['BsmtFullBath'].fillna(0.0)
+X_test['BsmtHalfBath'] = X_test['BsmtHalfBath'].fillna(0.0)
+X_test['BsmtUnfSF'] = X_test['BsmtUnfSF'].fillna(0.0)
+X_test['GarageArea'] = X_test['GarageArea'].fillna(0)
+X_test['GarageCars'] = X_test['GarageCars'].fillna(0)
+
+X_test[X_test.isnull().any(axis=1)]
+#list all row, cols with NAN 
+np.where(np.asanyarray(np.isnan(X_test)))
+
+df_test3[['Id', 'SalePrice']].to_csv("reg2.csv", index=False)
 
 #df_train.columns.values[9] = 'ConditionA'
 #df_train.columns.values[17] = 'ExteriorAst'
