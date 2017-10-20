@@ -88,6 +88,9 @@ def toCategorical():
     df_test['MSSubClass'] = df_test['MSSubClass'].astype(str)
     df_test['YrSold'] = df_test['YrSold'].astype(str)
     df_test['MoSold'] = df_test['MoSold'].astype(str)
+	# Adding total sqfootage feature 
+    df_train['TotalSF'] = df_train['TotalBsmtSF'] + df_train['AstFlrSF'] + df_train['BndFlrSF']
+    df_test['TotalSF'] = df_test['TotalBsmtSF'] + df_test['AstFlrSF'] + df_test['BndFlrSF']
 	
 #without categorical 
 #est.rsquared
@@ -97,6 +100,8 @@ def toCategorical():
 #est.rsquared
 #0.94172432257930694
 #0.9417452327131618 - labelEncoding
+#0.9417452327131618 - new feature
+
 
 toCategorical()
 
