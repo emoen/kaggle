@@ -11,10 +11,6 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 import os
 
-train_url = "train.csv"
-df_train = pd.read_csv(train_url)
-df_test = pd.read_csv("test.csv")
-
 #missing data
 #delete em
 def preprocessing(df):
@@ -39,7 +35,7 @@ def preprocessing(df):
     df = df.drop('Street', 1)      #not many datasets 
     df = df.drop('Utilities', 1)   #only 1 dataset
     df = df.drop('ConditionB', 1)   #only 14 dataset
-    df = df.drop('OverallCond', 1) # is just some noise
+    #df = df.drop('OverallCond', 1) # is just some noise
     df.loc[df.MSZoning == 'C (all)', 'MSZoning'] = 'C'
     df.loc[df.BldgType == '1Fam', 'BldgType'] = 'AFam'
     df.loc[df.BldgType == '2fmCon', 'BldgType'] = 'BfmCon'
@@ -73,6 +69,8 @@ def preprocessing(df):
     return df
 #df_train.MSZoning.unique()
 
+df_train = pd.read_csv("train.csv")
+df_test = pd.read_csv("test.csv")
 
 df_train = preprocessing(df_train)
 df_test = preprocessing(df_test)
@@ -81,12 +79,62 @@ df_test = preprocessing(df_test)
 df_train = df_train.drop(df_train[df_train['Id'] == 1299].index)
 df_train = df_train.drop(df_train[df_train['Id'] == 524].index)
 
-#df_train.rename(index=str, columns={"Condition1": "ConditionA", "Exterior1st": "ExteriorAst", 
-#"Exterior2nd":"ExteriorBnd","BsmtFinSF1":"BsmtFinSFA","BsmtFinSF2":"BsmtFinSFB","1stFlrSF":"AstFlrSF","2ndFlrSF":"BndFlrSF","3SsnPorch":"CSsnPorch"})
+def toCategorical():
+    #numeric to categorical type train
+    df_train['MSSubClass'] = df_train['MSSubClass'].astype(str)
+    df_train['YrSold'] = df_train['YrSold'].astype(str)
+    df_train['MoSold'] = df_train['MoSold'].astype(str)
+    #numeric to categorical type test
+    df_test['MSSubClass'] = df_test['MSSubClass'].astype(str)
+    df_test['YrSold'] = df_test['YrSold'].astype(str)
+    df_test['MoSold'] = df_test['MoSold'].astype(str)
+	
+#without categorical 
+#est.rsquared
+#0.93976819586603233	
 
+#with categorical
+#est.rsquared
+#0.94172432257930694
+#0.9417452327131618 - labelEncoding
+
+toCategorical()
+
+#label encode
+from sklearn.preprocessing import LabelEncoder
+cols = ('ExterQual', 'ExterCond','HeatingQC', 'KitchenQual', 'Functional', 'LandSlope',
+        'LotShape', 'PavedDrive', 'CentralAir', 'MSSubClass', 'OverallCond', 
+        'YrSold', 'MoSold')
+# process columns, apply LabelEncoder to categorical features
+# Categorical variables that may contain information in their ordering set
+def labelencode(df):
+    for c in cols:
+        lbl = LabelEncoder() 
+        lbl.fit(list(df[c].values)) 
+        df[c] = lbl.transform(list(df[c].values))
+
+labelencode(df_train)
+labelencode(df_test)
 df_train2 = pd.get_dummies(df_train) 
 df_test2 = pd.get_dummies(df_test) 
 all_columns = " + ".join(df_train2[df_train2.columns.difference(['Id', 'SalePrice'])].columns)
+
+#Normality train - log transform
+df_train2['SalePrice'] = np.log(df_train2['SalePrice'])
+
+df_train2['GrLivArea'] = np.log(df_train2['GrLivArea'])
+
+df_train2['HasBsmt'] = pd.Series(len(df_train2['TotalBsmtSF']), index=df_train2.index)
+df_train2['HasBsmt'] = 0 
+df_train2.loc[df_train2['TotalBsmtSF']>0,'HasBsmt'] = 1
+
+#Normality test - log transform
+df_test2['GrLivArea'] = np.log(df_test2['GrLivArea'])
+
+df_test2['HasBsmt'] = pd.Series(len(df_test2['TotalBsmtSF']), index=df_test2.index)
+df_test2['HasBsmt'] = 0 
+df_test2.loc[df_test2['TotalBsmtSF']>0,'HasBsmt'] = 1
+
 est = smf.ols(formula="SalePrice ~ "+all_columns, data=df_train2).fit()
 
 #pca = PCA(n_components=100)
@@ -96,12 +144,18 @@ est = smf.ols(formula="SalePrice ~ "+all_columns, data=df_train2).fit()
 missingCol = set(df_train2.columns) - set(df_test2.columns)
 for c in missingCol:
     df_test2[c] = 0
+
 # Ensure the order of column in the test set is in the same order than in train set
 df_test2 = df_test2[df_train2.columns]
 df_test2['SalePrice'] = est.predict(df_test2) 
-#df_train2 = pd.get_dummies(df_train2)
+#df_test2['SalePrice'] = np.exp(df_train2.SalePrice)-1
 
+df_test2['SalePrice'] = np.exp(df_test2['SalePrice'])
+df_test2['SalePrice'] = df_test2['SalePrice'].fillna(df_test2['SalePrice'].mean())
 df_test2[['Id', 'SalePrice']].to_csv("reg.csv", index=False)
+
+# shape        
+print('Shape all_data: {}'.format(all_data.shape))
 
 #df_train.columns.values[9] = 'ConditionA'
 #df_train.columns.values[17] = 'ExteriorAst'
