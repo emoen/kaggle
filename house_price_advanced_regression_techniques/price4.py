@@ -67,7 +67,6 @@ def preprocessing(df):
     df.loc[df.LotConfig == 'FR2', 'LotConfig'] = 'FRA'
     df.loc[df.LotConfig == 'FR3', 'LotConfig'] = 'FRB'
     return df
-#df_train.MSZoning.unique()
 
 df_train = pd.read_csv("train.csv")
 df_test = pd.read_csv("test.csv")
@@ -102,6 +101,7 @@ def toCategorical():
 #0.9417452327131618 - labelEncoding
 #0.9417452327131618 - new feature
 #0.9417452327131618 - after fillna for TEST - data
+#0.94263070017477302 - Box-Cox
 
 toCategorical()
 
@@ -141,30 +141,46 @@ df_test2['HasBsmt'] = 0
 df_test2.loc[df_test2['TotalBsmtSF']>0,'HasBsmt'] = 1
 
 #print columns that are not predicted to file in - TEST
-df_test.loc[df_test2.index.isin([660,728,1116])].to_csv("missing.csv", index=False)
+#df_test.loc[df_test2.index.isin([660,728,1116])].to_csv("missing.csv", index=False)
 #find by row and column:
 #np.where(np.asanyarray(np.isnan(df_test2)))
 #df_test.loc[df_test2.index.isin([660,728,1116,1117]),df_train2.columns[10]]
 #fillna for NANs in train data
-df_test2['BsmtFinSFA'].fillna( df_test2['BsmtFinSFA'].mean(), inplace=True )
-df_test2['BsmtFinSFB'].fillna( df_test2['BsmtFinSFB'].mean(), inplace=True )
-df_test2['BsmtUnfSF'].fillna( df_test2['BsmtUnfSF'].mean(), inplace=True )
-df_test2['TotalBsmtSF'].fillna( df_test2['TotalBsmtSF'].mean(), inplace=True )
+df_test2['BsmtFinSFA'].fillna( 0, inplace=True) #df_test2['BsmtFinSFA'].mean(), inplace=True )
+df_test2['BsmtFinSFB'].fillna( 0, inplace=True) #df_test2['BsmtFinSFB'].mean(), inplace=True )
+df_test2['BsmtUnfSF'].fillna( 0, inplace=True) #df_test2['BsmtUnfSF'].mean(), inplace=True )
+df_test2['TotalBsmtSF'].fillna( 0, inplace=True) #df_test2['TotalBsmtSF'].mean(), inplace=True )
 df_test2['BsmtFullBath'].fillna(0, inplace=True )
 df_test2['BsmtHalfBath'].fillna(0, inplace=True )
-df_test2['TotalSF'].fillna( df_test2['TotalSF'].mean(), inplace=True )
+df_test2['TotalSF'].fillna( 0, inplace=True) #df_test2['TotalSF'].mean(), inplace=True )
 df_test2['GarageCars'].fillna(0, inplace=True )
 df_test2['GarageArea'].fillna(0, inplace=True )
 
-est = smf.ols(formula="SalePrice ~ "+all_columns, data=df_train2).fit()
-
-#pca = PCA(n_components=100)
-#ttmp = pca.fit_transform(df_train2)
-
-#df_train2 = df_train2.copy
 missingCol = set(df_train2.columns) - set(df_test2.columns)
 for c in missingCol:
     df_test2[c] = 0
+
+#Box-Cox
+df_train3 = df_train2.copy()
+df_train3.drop("Id", axis = 1, inplace = True)
+df_train3.drop("SalePrice", axis = 1, inplace = True)
+numeric_feats = df_train3.dtypes[df_train3.dtypes != "object"].index
+
+skewed_feats = df_train2[numeric_feats].apply(lambda x: skew(x.dropna())).sort_values(ascending=False)
+skewness = pd.DataFrame({'Skew' :skewed_feats})
+skewness = skewness[abs(skewness) > 0.75]
+from scipy.special import boxcox1p
+skewed_features = skewness.index
+lam = 0.15
+for feat in skewed_features:
+    df_train2[feat] = boxcox1p(df_train2[feat], lam)
+    df_test2[feat] = boxcox1p(df_test2[feat], lam)
+
+y_train = df_train2.SalePrice.values
+all_data = pd.concat((df_train2, df_test2)).reset_index(drop=True)
+all_data.drop(['SalePrice'], axis=1, inplace=True)
+
+est = smf.ols(formula="SalePrice ~ "+all_columns, data=df_train2).fit()
 
 # Ensure the order of column in the test set is in the same order than in train set
 df_test2 = df_test2[df_train2.columns]
