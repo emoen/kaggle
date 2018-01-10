@@ -41,49 +41,26 @@ train = train.drop(train[train['Id'] == 524].index)
 
 #saleprice only in train set
 trainSalePrice = train.pop('SalePrice')
-
-features = pd.concat([train, test], keys=['train', 'test'])
-
-#features.loc['train'] 
-
-#drop cols
-features.drop(['Utilities', 'BsmtFinSFB', 'BsmtUnfSF', 'Heating', 'LowQualFinSF',
-               'BsmtFullBath', 'BsmtHalfBath', 'Functional', 'GarageYrBlt', 'GarageArea', 'GarageCond', 'WoodDeckSF',
-               'OpenPorchSF', 'EnclosedPorch', 'CSsnPorch', 'ScreenPorch', 'PoolArea', 'PoolQC', 'Fence', 'MiscFeature', 'MiscVal'],
-              axis=1, inplace=True)
-
-#droped - keep: RoofMatl, 'Heating', (Functional), (GarageCond), PoolQC- type('O')
-#droped - keep: BsmtFullBath  - type int64 -tostring()
-#droped - WoodDeckSF(.32), OpenPorchSF(.32) EnclosedPorch(-0.12), 3SsnPorch(0.04), ScreenPorch(0.11), PoolArea(0.09),  - int64
-#droped: , BsmtFinSFB (-0.01), BsmtUnfSF (0.21),  - float 64
-#!droped: LotFrontage(0.35), 'MasVnrArea' (corr:0.48) , 'BsmtFinSFA'(0.39) - float 64
-#delete: 'Utilities', 'LowQualFinSF', BsmtHalfBath
-    
-dofillna()
-toCategorical()
-features['GarageCars'] = features['GarageCars'].astype(int)
-features['LotArea'] = features['LotArea'].astype(float)
-features['GrLivArea'] = features['GrLivArea'].astype(float)
-
-changeNamesBeforeDummy(features)
-
 #log transform (then standardize)
 trainSalePrice = np.log(trainSalePrice)
-#features['GrLivArea'] = np.log(features['GrLivArea'])
+
+features = pd.concat([train, test], keys=['train', 'test'])
+#features.loc['train'] 
+
+#featuresOrig = features.copy()
+#cleanData(features)
+#features1 = features.copy()
+#features = featuresOrig.copy()
+features = cleanData2(features)
 
 #Standardize floats
-#features.loc[:,features.dtypes == np.float64].columns
-
-floatFeatures = features.loc[:,['BsmtFinSFA', 'GrLivArea', 'LotFrontage', 'LotArea', 'MasVnrArea', 'TotalSF']] 
+floatType = features.loc[:,features.dtypes == np.float64].columns
+floatType = list(floatType)
+floatFeatures = features.loc[:,floatType]
+#floatFeatures = features.loc[:,['BsmtFinSFA', 'GrLivArea', 'LotFrontage', 'LotArea', 'MasVnrArea', 'TotalSF']] 
 floatFeatures_standardized = (floatFeatures - floatFeatures.mean()) / floatFeatures.std()
 
 #ax = sns.pairplot(floatFeatures_standardized)
-
-labelencode(features)	
-features = dummiesDef(features)
-#features = pd.get_dummies(features) 
-
-doBoxCox(features)
 
 features_standardized = features.copy()
 features_standardized.update(floatFeatures_standardized)
@@ -163,6 +140,8 @@ scores = cross_val_score(KRREst, train_features_st, trainSalePrice, cv=5)
 print("Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2))
 scores = cross_val_score(GBoostEst, train_features_st, trainSalePrice, cv=5)
 print("Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2))
+scores = cross_val_score(GBestEst, train_features_st, trainSalePrice, cv=5)
+print("Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2))
 scores = cross_val_score(model_xgbEst, train_features_st, trainSalePrice, cv=5)
 print("Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2))
 scores = cross_val_score(model_lgbEst, train_features_st, trainSalePrice, cv=5)
@@ -172,11 +151,38 @@ print("Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2))
 ll = lasso.fit(train_features_st, trainSalePrice)
 en = ENet.fit(train_features_st, trainSalePrice)
 kr = KRR.fit(train_features_st, trainSalePrice)
+gboost = GBoost.fit(train_features_st, trainSalePrice)
+gbest = GBest.fit(train_features_st, trainSalePrice)
 mo1 = model_xgb.fit(train_features_st, trainSalePrice)
 mo2 = model_lgb.fit(train_features_st, trainSalePrice)
 
-#mo1 and mo2 way off... also off: 
+# based on cleanData() -scoring: 
+#KRR:   R2: 0.913320426215 RMSE: 0.11771646749
+#lasso: R2: 0.907608057683 RMSE: 0.122061307164 
+#ENet:  R2: 0.90748989272  RMSE: 0.122217757766
+#GBest: R2: 0.90109808643  RMSE: 0.120823240876
+#lgb:   R2: 0.896420976996 RMSE: 0.12371220412
+#XGB:   R2: 0.894944946543 RMSE: 0.125656760761
+#GBoost:R2: 0.88371583606  RMSE: 0.128624825258
+cleanDataSaleP = 0.5*(kr.predict(test_features_st)) + 0.2*(ll.predict(test_features_st))+0.2*(en.predict(test_features_st))+0.1*(gbest.predict(test_features_st))
+salePrice = np.exp(cleanDataSaleP)
 
+#based on cleanData2() -scoring
+#KRR:    R2: 0.916256567837 RMSE: 0.114888531536
+#lasso:  R2: 0.907468745157 RMSE: 0.121199257081
+#ENet:   R2: 0.906940168678 RMSE: 0.121672648265
+#xgb:    R2: 0.8968223606   RMSE: 0.123673266347
+#GBoost: R2: 0.89375225023  RMSE: 0.122641567995
+#GBest:  R2: 0.890943208376 RMSE: 0.124422796453
+#lgb:    R2: 0.899703146938 RMSE: 0.120693746415
+cleanData2SaleP = 0.5*(kr.predict(test_features_st)) + 0.2*(ll.predict(test_features_st))+0.2*(en.predict(test_features_st))+0.1*(mo1.predict(test_features_st))
+
+aggrSaleP = 0.7*cleanDataSaleP + 0.3*cleanData2SaleP
+salePrice = np.exp(aggrSaleP)
+
+
+#mo1 and mo2 way off... also off: 
+clean2SaleP = mo2.predict(test_features_st) + ll.predict(test_features_st) + en.predict(test_features_st) + mo1.predict(test_features_st)
 #tmpSaleP = ll.predict(test_features_st) + en.predict(test_features_st) + kr.predict(test_features_st) + mo1.predict(test_features_st) + mo2.predict(test_features_st)
 tmpSaleP = ll.predict(test_features_st) + en.predict(test_features_st) + kr.predict(test_features_st)
 #tmpSaleP =  ll.predict(test_features_st)
@@ -187,6 +193,86 @@ out = pd.DataFrame()
 out['SalePrice'] = salePrice
 out['Id'] = test['Id']
 out[['Id', 'SalePrice']].to_csv("reg.csv", index=False)
+
+###################################################
+def cleanData(features):
+    #drop cols
+    features.drop(['Utilities', 'BsmtFinSFB', 'BsmtUnfSF', 'Heating', 'LowQualFinSF',
+               'BsmtFullBath', 'BsmtHalfBath', 'Functional', 'GarageYrBlt', 'GarageArea', 'GarageCond', 'WoodDeckSF',
+               'OpenPorchSF', 'EnclosedPorch', 'CSsnPorch', 'ScreenPorch', 'PoolArea', 'PoolQC', 'Fence', 'MiscFeature', 'MiscVal'],
+              axis=1, inplace=True)
+    #droped - keep: RoofMatl, 'Heating', (Functional), (GarageCond), PoolQC- type('O')
+    #droped - keep: BsmtFullBath  - type int64 -tostring()
+    #droped - WoodDeckSF(.32), OpenPorchSF(.32) EnclosedPorch(-0.12), 3SsnPorch(0.04), ScreenPorch(0.11), PoolArea(0.09),  - int64
+    #droped: , BsmtFinSFB (-0.01), BsmtUnfSF (0.21),  - float 64
+    #!droped: LotFrontage(0.35), 'MasVnrArea' (corr:0.48) , 'BsmtFinSFA'(0.39) - float 64
+    #delete: 'Utilities', 'LowQualFinSF', BsmtHalfBath
+    
+    dofillna()
+    toCategorical()
+    features['GarageCars'] = features['GarageCars'].astype(int)
+    features['LotArea'] = features['LotArea'].astype(float)
+    features['GrLivArea'] = features['GrLivArea'].astype(float)
+    
+    changeNamesBeforeDummy(features)
+    cols = ('ExterQual', 'ExterCond','HeatingQC', 'KitchenQual', 'LandSlope',
+        'LotShape', 'PavedDrive', 'CentralAir', 'MSSubClass', 'OverallCond', 
+        'YrSold', 'MoSold')
+    labelencode(features, cols)	
+    features = dummiesDef(features)
+    print("beforeBoxCox:", features.LotArea.head())
+    doBoxCox(features)
+    print("beforeBoxCox:", features.LotArea.head())
+    return features
+
+def cleanData2(features):     
+    features.drop(['Utilities'], axis=1, inplace=True) #GarageArea correlates with GarageCars
+    dofillna()
+    dofillnaExtra()
+    
+    toCategorical()  
+    features['LowQualFinSF'] = features['LowQualFinSF'].astype(float)
+    features['GarageYrBlt'] = features['GarageYrBlt'].astype(str)
+    features['WoodDeckSF'] = features['WoodDeckSF'].astype(float)
+    features['OpenPorchSF'] = features['OpenPorchSF'].astype(float)
+    features['EnclosedPorch'] = features['EnclosedPorch'].astype(float)
+    features['CSsnPorch'] = features['CSsnPorch'].astype(float)
+    features['ScreenPorch'] = features['ScreenPorch'].astype(float)
+    features['PoolArea'] = features['PoolArea'].astype(float)
+    features['MiscVal'] = features['MiscVal'].astype(float)
+    
+    changeNamesBeforeDummy(features)
+    features.loc[features.MiscFeature == 'Gar2', 'MiscFeature'] = 'GarB'
+    
+    cols = ('ExterQual', 'ExterCond','HeatingQC', 'KitchenQual', 'LandSlope',
+        'LotShape', 'PavedDrive', 'CentralAir', 'MSSubClass', 'OverallCond', 
+        'YrSold', 'MoSold', 'Heating', 'Functional', 'GarageYrBlt', 'GarageCond', 'PoolQC', 'Fence', 'MiscFeature')
+    labelencode(features, cols)
+    features = dummiesDef(features)
+    doBoxCox(features) 
+    return features
+
+def dofillnaExtra():
+    features['BsmtFinSFB'] = features['BsmtFinSFB'].fillna(0)
+    features['BsmtUnfSF'] = features['BsmtUnfSF'].fillna(0)
+    #Heating no nans - o type
+    #LowQualFinSF     - int
+    features['BsmtFullBath'] = features['BsmtFullBath'].fillna(0)
+    features['BsmtHalfBath'] = features['BsmtHalfBath'].fillna(0)
+    features['Functional'] = features['Functional'].fillna(features['Functional'].mode()[0])
+    features['GarageYrBlt'] = features['GarageYrBlt'].fillna(0) # 0 means no garage
+    features['GarageArea'] = features['GarageArea'].fillna(0) # 0 means no garage
+    features['GarageCond'] = features['GarageCond'].fillna(features['GarageCond'].mode()[0]) 
+    #WoodDeckSF - int
+    #OpenPorchSF - int
+    #EnclosedPorch - int
+    #CSsnPorch - int
+    #ScreenPorch - int
+    #PoolArea - int
+    features['PoolQC'] = features['PoolQC'].fillna('NoPool')
+    features['Fence'] = features['Fence'].fillna('NoFence')
+    features['MiscFeature'] = features['MiscFeature'].fillna('NA')
+    #MiscVal
 
 def dofillna():
     # MSSubClass as str
@@ -240,8 +326,7 @@ def toCategorical():
     features['YrSold'] = features['YrSold'].astype(str)
     features['MoSold'] = features['MoSold'].astype(str)
     features['HasBsmt'] = features['HasBsmt'].astype(str)
-	
-	
+
 def changeNamesBeforeDummy(df):
     df.loc[df.MSZoning == 'C (all)', 'MSZoning'] = 'C'
     df.loc[df.BldgType == '1Fam', 'BldgType'] = 'AFam'
@@ -272,7 +357,7 @@ def changeNamesBeforeDummy(df):
 #    df.loc[df.ExteriorBnd == 'Min2', 'Functional'] = 'MinB'
 #    df.loc[df.ExteriorBnd == 'Maj2', 'Functional'] = 'MajB'
     df.loc[df.LotConfig == 'FR2', 'LotConfig'] = 'FRA'
-    df.loc[df.LotConfig == 'FR3', 'LotConfig'] = 'FRB'	
+    df.loc[df.LotConfig == 'FR3', 'LotConfig'] = 'FRB'
 
 
 def dummiesDef(features):
@@ -302,17 +387,14 @@ def dummiesDef(features):
 
 # process columns, apply LabelEncoder to categorical features
 # Categorical variables that may contain information in their ordering set
-def labelencode(df):
-    cols = ('ExterQual', 'ExterCond','HeatingQC', 'KitchenQual', 'LandSlope',
-        'LotShape', 'PavedDrive', 'CentralAir', 'MSSubClass', 'OverallCond', 
-        'YrSold', 'MoSold')
+def labelencode(df, cols):
+    #features.loc[:,features.dtypes == np.object].columns
     for c in cols:
         lbl = LabelEncoder() 
         lbl.fit(list(df[c].values)) 
         df[c] = lbl.transform(list(df[c].values))	
-		
+
 def doBoxCox(df):
-    #df_train3.drop("Id", axis = 1, inplace = True)
     numeric_feats = df.dtypes[df.dtypes != "object"].index
     numeric_feats = numeric_feats.drop("Id")
     
@@ -401,3 +483,6 @@ train['SalePrice'].groupby(train['RoofMatl']).mean()
 
 data = pd.concat([train['SalePrice'], train['Heating']], axis=1)
 data.corr()
+
+#null of numpy 
+np.argwhere(np.isnan(x))
