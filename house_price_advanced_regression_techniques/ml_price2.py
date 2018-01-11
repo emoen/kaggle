@@ -9,6 +9,7 @@ from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedKFold
 
 def changeNamesBeforeDummy(df):    
     df.loc[df.OverallQual == 1, 'OverallQual'] = 'A'
@@ -60,10 +61,26 @@ def baseline_model():
     # Compile model
     model.compile(loss='mean_squared_error', optimizer='adam', metrics=['accuracy'])
     return model
+
+seed = 7
+np.random.seed(seed)
+kfold = StratifiedKFold(n_splits=10, shuffle=True, random_state=seed)
+
+dummyTrain = dummyTrain.values
+Y = Y.values
+cvscores = []
+for train, test in kfold.split(dummyTrain, Y):
+    model = baselline_model()
+    model.fit( dummyTrain[train], Y[train], valisdation_split=0.15, epochs=30, batch_size=100, verbose=0 )
+    scores = model.evaluate(dummyTrain[test], Y[test], verbose=0)
+    print("%s: %.2f%%" % (model.metrics_names[1], scores[1]*100))
+    cvscores.append(scores[1] * 100)
     
-model = baseline_model()
+print("%.2f%% (+/- %.2f%%)" % (np.mean(cvscores), np.std(cvscores)))    
+    
+
 #model.fit(X_tr,y_tr,validation_data=(X_val,y_val),epochs=30,batch_size=100)
-model.fit(dummyTrain, Y, validation_split=0.15, epochs=30, batch_size=100)
+#model.fit(dummyTrain, Y, validation_split=0.15, epochs=30, batch_size=100)
 
 #np.sqrt(model.evaluate(X_val,y_val))
 preds = model.predict(dummyTest.values)
