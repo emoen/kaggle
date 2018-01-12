@@ -59,24 +59,32 @@ def baseline_model():
     model.add(Dense(20, input_dim=13, kernel_initializer='normal', activation='relu'))
     model.add(Dense(1, kernel_initializer='normal'))
     # Compile model
-    model.compile(loss='mean_squared_error', optimizer='adam', metrics=['accuracy'])
+    model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mae', 'accuracy', mean_pred, 'mape'])
     return model
 
 seed = 7
 np.random.seed(seed)
-kfold = StratifiedKFold(n_splits=10, shuffle=True, random_state=seed)
+#kfold = StratifiedKFold(n_splits=2, shuffle=True, random_state=seed)
+kfold = KFold(n_splits=9, shuffle=True, random_state=seed)
+
+def mean_pred(y_true, y_pred):
+    return K.mean(y_pred)
 
 dummyTrain = dummyTrain.values
+dummyTest = dummyTest.values
 Y = Y.values
 cvscores = []
 for train, test in kfold.split(dummyTrain, Y):
-    model = baselline_model()
-    model.fit( dummyTrain[train], Y[train], valisdation_split=0.15, epochs=30, batch_size=100, verbose=0 )
+    model = baseline_model()
+    model.fit( dummyTrain[train], Y[train], epochs=10, batch_size=100, verbose=0 )
     scores = model.evaluate(dummyTrain[test], Y[test], verbose=0)
-    print("%s: %.2f%%" % (model.metrics_names[1], scores[1]*100))
-    cvscores.append(scores[1] * 100)
     
-print("%.2f%% (+/- %.2f%%)" % (np.mean(cvscores), np.std(cvscores)))    
+    print(" "+ str(model.metrics_names) + " "+str(scores))
+    results = model.predict( dummyTest)
+    print( "test mean:"+str( np.expm1(results.mean()) ))
+    cvscores.append(scores[4] )
+    
+print("mean_abs_pers_err: %.2f%% std: (+/- %.2f%%)" % (np.mean(cvscores), np.std(cvscores)))    
     
 
 #model.fit(X_tr,y_tr,validation_data=(X_val,y_val),epochs=30,batch_size=100)
