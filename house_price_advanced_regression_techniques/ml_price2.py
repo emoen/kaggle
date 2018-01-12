@@ -10,6 +10,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import StratifiedKFold
+from keras.layers.normalization import BatchNormalization
 
 def changeNamesBeforeDummy(df):    
     df.loc[df.OverallQual == 1, 'OverallQual'] = 'A'
@@ -53,10 +54,13 @@ Y = np.log1p(true_Y)
 
 #X_tr, X_val, y_tr, y_val = train_test_split(dummyTrain, Y)
 
+#Just 80 nodes 1 layer: mean_abs_p_err: 3.58% std: (+/- 2.14%)
 def baseline_model():
     # create model
     model = Sequential()
-    model.add(Dense(20, input_dim=13, kernel_initializer='normal', activation='relu'))
+    model.add(Dense(1024, input_dim=13, kernel_initializer='he_normal', activation='relu'))
+    model.add(BatchNormalization())
+    model.add(Dense(512, kernel_initializer='he_normal', activation='relu'))
     model.add(Dense(1, kernel_initializer='normal'))
     # Compile model
     model.compile(loss='mean_squared_error', optimizer='adam', metrics=['mae', 'accuracy', mean_pred, 'mape'])
@@ -82,9 +86,9 @@ for train, test in kfold.split(dummyTrain, Y):
     print(" "+ str(model.metrics_names) + " "+str(scores))
     results = model.predict( dummyTest)
     print( "test mean:"+str( np.expm1(results.mean()) ))
-    cvscores.append(scores[4] )
+    cvscores.append( scores[4] )
     
-print("mean_abs_pers_err: %.2f%% std: (+/- %.2f%%)" % (np.mean(cvscores), np.std(cvscores)))    
+print("mean_abs_p_err: %.2f%% std: (+/- %.2f%%)" % (np.mean(cvscores), np.std(cvscores)))    
     
 
 #model.fit(X_tr,y_tr,validation_data=(X_val,y_val),epochs=30,batch_size=100)
